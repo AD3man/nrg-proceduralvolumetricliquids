@@ -1,5 +1,7 @@
 package FluidSimulation;
 
+import java.util.Random;
+
 /**
  * From: https://www.mikeash.com/pyblog/fluid-simulation-for-dummies.html
  */
@@ -7,12 +9,19 @@ public class Simulation {
 
     private FluidCube fluidCube;
 
-    public Simulation(int size, double[][][] initialDensity, double viscosity, double diffusion, double dt) {
+    public Simulation(int size, double[][][] initialDensity, double viscosity, double diffusion, double dt, int seed) {
         fluidCube = new FluidCube(size,diffusion, viscosity, dt);
         for (int x = 0; x < size; x++) {
             for (int y = 0; y < size; y++) {
                 for (int z = 0; z < size; z++) {
                     fluidCube.addDensity(x,y,z,initialDensity[x][y][z]);
+                    Random r = seed > 0 ? new Random(seed) : new Random();
+                    double vx = (r.nextDouble() * 10) - 5;
+                    double vy = (r.nextDouble() * 10) - 5;
+                    double vz = (r.nextDouble() * 10) - 5;
+
+                    fluidCube.addVelocity(x,y,z, vx,vy,vz);
+
                 }
             }
         }
