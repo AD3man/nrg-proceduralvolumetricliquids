@@ -103,9 +103,6 @@ public class VPTWriterTest {
                 double a = ImprovedNoise.noise(xOffset, yOffset, newZd);
                 int zMax = (int) Math.round(newZ + (waveAmpl * a));
                 for (int z = 0; z < zMax; z++) {
-                    if(z == zMax-1) {
-                        double qwq = 1.0;
-                    }
                     int sourceZ = z + (reduceSize + (newZ - zMax));
                     double value =  simulated[x][y][sourceZ];
                     reducedSeaLevel[x][y][z] = value;
