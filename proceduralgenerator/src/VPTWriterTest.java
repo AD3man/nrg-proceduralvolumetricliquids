@@ -7,6 +7,7 @@ import java.awt.image.Raster;
 import java.io.*;
 import java.util.ArrayList;
 import java.util.Random;
+import java.util.function.DoubleToIntFunction;
 
 public class VPTWriterTest {
 
@@ -14,17 +15,22 @@ public class VPTWriterTest {
     public final int Y = 128;
     public final int Z = 128;
 
-    public double[][][] prepareInitialConditions(double waterDensity, double offsetDelta, int seed) {
+    public double[][][] prepareInitialConditions(double waterDensity, double zToRealCoef, double maxDensityDiff, double offsetDelta, int seed) {
         double[][][] data = new double[X][Y][Z];
-        Random r = seed > 0 ? new Random(seed) : new Random();
-        double xOffset = 0.1;
+        double g = 9.81;
+        Random r = new Random();
+        int offsetRanX = r.nextInt();
+        int offsetRanY = r.nextInt();
+        int offsetRanZ = r.nextInt();
+        double xOffset = offsetRanX + 0.1;
         for (int x = 0; x < X; x++) {
-            double yOffset = 0.1;
+            double yOffset = offsetRanY +0.1;
             for (int y = 0; y < Y; y++) {
-                double zOffset = 0.1;
+                double zOffset = offsetRanZ +  0.1;
                 for (int z = 0; z < Z; z++) {
                     double a = ImprovedNoise.noise(xOffset, yOffset, zOffset);
-                    data[x][y][z] = waterDensity + (100 * a);
+                    double h = Z - z;
+                    data[x][y][z] = (waterDensity * g * (h * zToRealCoef)) + ((maxDensityDiff) * a);
                     zOffset += offsetDelta;
                 }
                 yOffset += offsetDelta;
@@ -82,21 +88,27 @@ public class VPTWriterTest {
         return reducedSeaLevel;
     }
 
-    private double[][][] reduceSeaLevelAddWaves(double[][][] simulated, int reduceSize, int waveAmpl, double offsetDelta, int seed) {
+    private double[][][] reduceSeaLevelAddWaves(double[][][] simulated, int reduceSize, int waveAmpl, double offsetDelta) {
         double[][][] reducedSeaLevel = new double[X][Y][Z];
-        Random r = seed > 0 ? new Random(seed) : new Random();
         int newZ = (Z - reduceSize);
-        double newZd = newZ + r.nextDouble();
-//        Noise.
-
-        double xOffset = 0.1;
+        double newZd = newZ + 0.01;
+//       TODO potisni pressure dol.
+        Random r = new Random();
+        int offsetRanX = r.nextInt();
+        int offsetRanY = r.nextInt();
+        double xOffset = offsetRanX + 0.1;
         for (int x = 0; x < X; x++) {
-            double yOffset = 0.1;
+            double yOffset = offsetRanY + 0.1;
             for (int y = 0; y < Y; y++) {
                 double a = ImprovedNoise.noise(xOffset, yOffset, newZd);
                 int zMax = (int) Math.round(newZ + (waveAmpl * a));
                 for (int z = 0; z < zMax; z++) {
-                    reducedSeaLevel[x][y][z] = simulated[x][y][z];
+                    if(z == zMax-1) {
+                        double qwq = 1.0;
+                    }
+                    int sourceZ = z + (reduceSize + (newZ - zMax));
+                    double value =  simulated[x][y][sourceZ];
+                    reducedSeaLevel[x][y][z] = value;
                 }
                 for (int z = zMax; z < Z; z++) {
                     reducedSeaLevel[x][y][z] = 1.2;
@@ -108,13 +120,16 @@ public class VPTWriterTest {
         return reducedSeaLevel;
     }
 
-    private double[][][] addGround(double[][][] simulated, int[][] heightmap, int meanZ, int dZ, double offsetDelta, double density, int seed) {
+    private double[][][] addGround(double[][][] simulated, int[][] heightmap, int meanZ, int dZ, double offsetDelta, double density) {
         double[][][] withGround = new double[X][Y][Z];
-        Random r = seed > 0 ? new Random(seed) : new Random();
-        double meanZd = meanZ + r.nextDouble();
-        double xOffset = 0.1;
+        double meanZd = meanZ + 0.01;
+        Random r = new Random();
+        int offsetRanX = r.nextInt();
+        int offsetRanY = r.nextInt();
+        double xOffset =offsetRanX + 0.1;
+        double g = 9.81;
         for (int x = 0; x < X; x++) {
-            double yOffset = 0.1;
+            double yOffset = offsetRanY + 0.1;
             for (int y = 0; y < Y; y++) {
                 double a;
                 int zMax;
@@ -123,19 +138,20 @@ public class VPTWriterTest {
                     zMax = (int) Math.round(meanZ + (a * dZ));
                 } else {
                     a = ImprovedNoise.noise(xOffset, yOffset, meanZd);
-                    zMax = Math.max(0, Math.min((int) Math.round(heightmap[x][y] + (a*dZ)), Z - 1));
+                    zMax = Math.max(0, Math.min((int) Math.round(heightmap[x][y] + (a * dZ)), Z - 1));
                 }
 
                 for (int z = 0; z < zMax; z++) {
+
                     withGround[x][y][z] = density;
                 }
                 for (int z = zMax; z < Z; z++) {
                     withGround[x][y][z] = simulated[x][y][z];
                 }
-                yOffset+=offsetDelta;
+                yOffset += offsetDelta;
 
             }
-            xOffset+=offsetDelta;
+            xOffset += offsetDelta;
         }
         return withGround;
     }
@@ -188,10 +204,10 @@ public class VPTWriterTest {
         double viscosity = 1.5673;
 
         int[][] heightmap = null; //vptw.getHeightmap("heightmaps/hmap3.jpg");
-        String path = "resout/test9_dt0_01_velocity5_init";
+        String path = "resout/test012_dt0_01_velocity5_init";
 
 
-        double[][][] initial = vptw.prepareInitialConditions(1000, 0.01, 234);
+        double[][][] initial = vptw.prepareInitialConditions(1000, 1.0 / 1000.0, 0.5, 0.01, 234);
 
         int startingseed = 235;
         double[][][] simulated = vptw.doSimulation(initial, viscosity, diffusion, dt, startingseed++);
@@ -201,17 +217,40 @@ public class VPTWriterTest {
                 vptw.writeToFile(path + "_simstep_" + step, ".bin", simulated, 2.7, 0.0012);
             }
         }
+
+
+        double maxP = Double.MIN_VALUE;
+        double minP = Double.MAX_VALUE;
+        for (int x = 0; x < vptw.X; x++) {
+            for (int y = 0; y < vptw.Y; y++) {
+                for (int z = 0; z < vptw.Z; z++) {
+                    double value = simulated[x][y][z];
+                    if (value > maxP) {
+                        maxP = value;
+                    }
+                    if (value < minP) {
+                        minP = value;
+                    }
+                }
+            }
+        }
+        System.out.println(String.format("Simulated pressure min: %f; max: %f ", minP, maxP));
+
+
 //        double[][][] reducedSeaLevel = vptw.reduceSeaLevel(simulated, 50);
 //        vptw.writeToFile(path + "_reduce.bin", reducedSeaLevel, 2.7, 0.0012);
         path += "_reduce_waves_lowerdelta";
-        double[][][] reducedSeaLevelAndWave = vptw.reduceSeaLevelAddWaves(simulated, 50, 10, 0.05, 2330);
+        double[][][] reducedSeaLevelAndWave = vptw.reduceSeaLevelAddWaves(simulated, 50, 10, 0.05);
         vptw.writeToFile(path, ".bin", reducedSeaLevelAndWave, 2.7, 0.0012);
 
 //        double[][][] withGround = vptw.addGround(reducedSeaLevel, heightmap, 10, 0, 2700, 235);
-        double[][][] withGround = vptw.addGround(reducedSeaLevelAndWave, heightmap, 20, 5, 0.05, 2700, 235);
+//        double[][][] withGround = vptw.addGround(reducedSeaLevelAndWave, heightmap, 20, 5, 0.05, 2700);
+        double[][][] withGround = vptw.addGround(reducedSeaLevelAndWave, heightmap, 20, 5, 0.05, maxP*2);
 
 
-        vptw.writeToFile(path + "_ground", ".bin", withGround, 2.7, 0.0012);
+        System.out.println(String.format("Perlin noise min: %f; max: %f ", ImprovedNoise.min, ImprovedNoise.max));
+//        vptw.writeToFile(path + "_ground", ".bin", withGround, 2.7, 0.0012);
+        vptw.writeToFile(path + "_ground", ".bin", withGround, (maxP*2)/1000, 1.0/1000);
     }
 
 

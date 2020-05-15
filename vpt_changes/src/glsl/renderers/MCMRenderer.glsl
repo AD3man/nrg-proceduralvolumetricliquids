@@ -64,6 +64,7 @@ layout (location = 0) out vec4 oPosition;
 layout (location = 1) out vec4 oDirection;
 layout (location = 2) out vec4 oTransmittance;
 layout (location = 3) out vec4 oRadiance;
+//layout (location = 4) out vec4 oPressure;
 
 @rand
 @unprojectRand
@@ -77,7 +78,7 @@ void resetPhoton(inout vec2 randState, inout Photon photon) {
     vec2 tbounds = max(intersectCube(from, photon.direction), 0.0);
     photon.position = from + tbounds.x * photon.direction;
     photon.transmittance = vec3(1);
-    photon.pressure = 0.0;
+    photon.pressure = 1.0;
 }
 
 vec4 sampleEnvironmentMap(vec3 d) {
@@ -138,7 +139,7 @@ void main() {
         vec4 volumeSample = texture(uVolume, photon.position);
         float pressure = volumeSample.r;
         vec3 gradient = volumeSample.gba;
-        vec4 transferSample = texture(uTransferFunction, vec2(volumeSample.r, 0.0));
+        vec4 transferSample = texture(uTransferFunction, vec2(volumeSample.r, length(gradient)));
         float muAbsorption = transferSample.a * uAbsorptionCoefficient;
         float muScattering = transferSample.a * uScatteringCoefficient;
         float muNull = uMajorant - muAbsorption - muScattering;
@@ -169,26 +170,40 @@ void main() {
             photon.transmittance *= 1.0 - weightA;
             photon.pressure = pressure;
 
-        } else if (r.y < PAbsorption + (PScattering/2.0)) {
-            // scattering
-
-            r = rand(r);
-            float weightS = muScattering / (uMajorant * PScattering);
-            photon.transmittance *= transferSample.rgb * weightS;
-            photon.direction = sampleHenyeyGreenstein(uScatteringBias, r, photon.direction);
-//            float eta =1.0 - ((1.0 - (pressure/ photon.pressure)) * 0.001);
-//            photon.direction = refract(photon.direction, gradient, eta);
-            photon.pressure = pressure;
-            photon.bounces++;
-        }else if (r.y < PAbsorption + PScattering) {
-            // scattering
-
-            r = rand(r);
-            float weightS = muScattering / (uMajorant * PScattering);
-            photon.transmittance *= transferSample.rgb * weightS;
+        }
+//        else if (r.y < PAbsorption + (PScattering/2.0)) {
+//            // scattering
+//
+//            r = rand(r);
+//            float weightS = muScattering / (uMajorant * PScattering);
+//            photon.transmittance *= transferSample.rgb * weightS;
 //            photon.direction = sampleHenyeyGreenstein(uScatteringBias, r, photon.direction);
-            float eta =1.0 - ((1.0 - (pressure/ photon.pressure)) * 0.001);
-            photon.direction = refract(photon.direction, gradient, eta);
+////            float eta =1.0 - ((1.0 - (pressure/ photon.pressure)) * 0.001);
+////            photon.direction = refract(photon.direction, gradient, eta);
+//            photon.pressure = pressure;
+//            photon.bounces++;
+//        }
+        else if (r.y < PAbsorption + PScattering) {
+            // scattering
+            vec2 r2 = rand(r);
+            r = rand(r);
+
+            if(r2.y <  0.5) {
+                float weightS = muScattering / (uMajorant * PScattering);
+                photon.transmittance *= transferSample.rgb * weightS;
+                photon.direction = sampleHenyeyGreenstein(uScatteringBias, r, photon.direction);
+
+            } else {
+               // photon.transmittance = transferSample.rgb;
+                float eta = (pressure/ photon.pressure);
+                photon.direction = refract(normalize(photon.direction), normalize(gradient), eta);
+            }
+
+
+
+//
+           // float eta =1.0 - ((1.0 - (pressure/ photon.pressure)) * 1.0);
+
             photon.pressure = pressure;
             photon.bounces++;
         } else {
@@ -201,8 +216,9 @@ void main() {
 
     oPosition = vec4(photon.position, 0);
     oDirection = vec4(photon.direction, float(photon.bounces));
-    oTransmittance = vec4(photon.transmittance, 0);
+    oTransmittance = vec4(photon.transmittance, photon.pressure);
     oRadiance = vec4(photon.radiance, float(photon.samples));
+//    oPressure = vec4(photon.pressure, 0,0,0);
 }
 
 // #section MCMRender/vertex
@@ -262,6 +278,7 @@ layout (location = 0) out vec4 oPosition;
 layout (location = 1) out vec4 oDirection;
 layout (location = 2) out vec4 oTransmittance;
 layout (location = 3) out vec4 oRadiance;
+//layout (location = 4) out vec4 oPressure;
 
 @rand
 @unprojectRand
@@ -281,6 +298,7 @@ void main() {
     photon.samples = 0u;
     oPosition = vec4(photon.position, 0);
     oDirection = vec4(photon.direction, float(photon.bounces));
-    oTransmittance = vec4(photon.transmittance, 0);
+    oTransmittance = vec4(photon.transmittance, photon.pressure);
     oRadiance = vec4(photon.radiance, float(photon.samples));
+//    oPressure = vec4(photon.oPressure, 0,0,0);
 }
