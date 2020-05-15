@@ -200,8 +200,8 @@ public class VPTWriterTest {
         double dt = 0.01;
         double viscosity = 1.5673;
 
-        int[][] heightmap = null; //vptw.getHeightmap("heightmaps/hmap3.jpg");
-        String path = "resout/test012_dt0_01_velocity5_init";
+        int[][] heightmap = vptw.getHeightmap("heightmaps/hmap2.jpg");
+        String path = "resout/test013_heightmap_dt0_01_velocity5_init";
 
 
         double[][][] initial = vptw.prepareInitialConditions(1000, 1.0 / 1000.0, 0.5, 0.01, 234);
